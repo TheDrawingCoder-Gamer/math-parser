@@ -72,7 +72,15 @@ class Lexer {
                 case " " | "\t" | "\n" | "\r" | ",":
                     // Do nothing
                 case _ if (Helper.isAlpha(curChar)):
-                    tokens.push(Function(constr.consumeName()));
+                    var name = constr.consumeName();
+                    switch (name) {
+                        case "pi": 
+                            tokens.push(Number(Math.PI));
+                        case "e": 
+                            tokens.push(Number(Math.exp(1)));
+                        default: 
+                            tokens.push(Function(name));
+                    }
                 default: 
                     throw "Unexpected Character: " + curChar;
             }
