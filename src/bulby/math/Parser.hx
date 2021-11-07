@@ -81,7 +81,7 @@ class Parser {
                 case Add | Sub | Mul | Div | Mod | Pow: 
                     while (operatorStack.length > 0) {
                         var top = operatorStack[operatorStack.length - 1];
-                        if (top != LParen && precedence[top] < precedence[eexprFromToken(token)]) {
+                        if (top != LParen && (precedence[top] > precedence[eexprFromToken(token)] || (precedence[top] == precedence[eexprFromToken(token)] && associativity[eexprFromToken(token)] == Left))) {
                             final right = operandStack.pop();
                             final left = operandStack.pop();
                             operandStack.push(new Expr(operatorStack.pop(), [left, right]));
