@@ -132,7 +132,6 @@ class Parser {
             final left = operandStack.pop();
             operandStack.push(new Expr(operatorStack.pop(), [left, right]));
         }
-        trace(operandStack);
         return operandStack.pop();
 
     }

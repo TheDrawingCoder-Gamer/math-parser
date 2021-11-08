@@ -85,7 +85,6 @@ class Lexer {
                     throw "Unexpected Character: " + curChar;
             }
         }
-        trace(tokens);
         return tokens;
     }
 }
