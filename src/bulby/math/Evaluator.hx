@@ -46,7 +46,7 @@ class Evaluator {
                             case 2: 
                                 return functions[name](evaluate(left), evaluate(right));
                             default: 
-                                throw "Invalid Argument Count (internal error, fix this dumbass)";
+                                throw "Invalid Argument Count (internal error, fix this)";
                         }
                     default: 
                         throw "Evaluation Error: Expected operator in node, got " + expr.value;
