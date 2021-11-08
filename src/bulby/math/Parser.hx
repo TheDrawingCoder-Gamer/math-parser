@@ -1,6 +1,7 @@
 package bulby.math;
 
 import bulby.math.Lexer.Token;
+using bulby.math.Helper.ArrayTools;
 enum Side {
     Left;
     Right;
@@ -16,6 +17,14 @@ enum EExpr {
     Call(name:String, args:Array<Expr>);
     LParen;
     RParen;
+    Negate;
+
+}
+enum OpKind {
+    Prefix;
+    Infix;
+    Postfix;
+
 }
 class Expr {
     public var children:Array<Expr>;
@@ -30,12 +39,13 @@ class Expr {
 }
 class Parser {
     public static var precedence:Map<EExpr, Int> = [
-        Add => 2,
-        Sub => 2,
+        Add => 4,
+        Sub => 4,
         Mul => 3,
         Div => 3,
         Mod => 3,
-        Pow => 4
+        Pow => 2,
+        Negate => 1
     ];
     public static var associativity:Map<EExpr, Side> = [
         Add => Left,
@@ -44,6 +54,15 @@ class Parser {
         Div => Left,
         Mod => Left,
         Pow => Right
+    ];
+    public static var opkind:Map<EExpr, OpKind> = [
+        Add => Infix,
+	    Sub => Infix,
+	    Mul => Infix,
+	    Div => Infix,
+		Mod => Infix,
+		Pow => Infix,
+        Negate => Prefix
     ];
     static function eexprFromToken(token:Token):EExpr {
         switch (token) {
@@ -67,6 +86,8 @@ class Parser {
                 return RParen;
             case Function(name):
                 return Call(name, []);
+            case Negate:
+                return Negate;
         }
     }
     public static function parse(tokens:Array<Token>) {
@@ -78,13 +99,25 @@ class Parser {
             switch (token) {
                 case Number(value): 
                     operandStack.push(new Expr(Number(value)));
-                case Add | Sub | Mul | Div | Mod | Pow: 
+                // If this is the first operator OR the previous operator was a binop or the start of a parentesis
+				case Sub if ((tokens[pos - 1] == null || tokens[pos - 1].match(Add | Sub | Mul | Div | Mod | Pow | LParen)) && operandStack.peek().value.match(Number(_))): 
+                    operatorStack.push(Negate);
+                case Sub | Add | Mul | Div | Mod | Pow | Negate : 
                     while (operatorStack.length > 0) {
-                        var top = operatorStack[operatorStack.length - 1];
-                        if (top != LParen && (precedence[top] > precedence[eexprFromToken(token)] || (precedence[top] == precedence[eexprFromToken(token)] && associativity[eexprFromToken(token)] == Left))) {
-                            final right = operandStack.pop();
-                            final left = operandStack.pop();
-                            operandStack.push(new Expr(operatorStack.pop(), [left, right]));
+                        var top = operatorStack.peek();
+                        if (top != LParen && (precedence[top] < precedence[eexprFromToken(token)] || (precedence[top] == precedence[eexprFromToken(token)] && associativity[eexprFromToken(token)] == Left))) {
+                            switch (opkind[top]) {
+                                case Infix:
+									final right = operandStack.pop();
+									final left = operandStack.pop();
+									operandStack.push(new Expr(operatorStack.pop(), [left, right]));
+                                case Prefix:
+                                    final arg = operandStack.pop();
+                                    operandStack.push(new Expr(operatorStack.pop(), [arg]));
+                                case Postfix:
+                                    // TODO: Implement postfix
+                            }   
+                            
                         } else {
                             break;
                         }
@@ -97,7 +130,7 @@ class Parser {
                 case RParen: 
                     var hasParen = false;
                     while (operatorStack.length > 0) {
-                        var top = operatorStack[operatorStack.length - 1];
+                        var top = operatorStack.peek();
                         if (top != LParen) {
                             final right = operandStack.pop();
                             final left = operandStack.pop();
@@ -110,7 +143,7 @@ class Parser {
                     }
                     if (!hasParen)
                         throw "Unmatched Parenthesis";
-                    var top = operatorStack[operatorStack.length - 1];
+                    var top = operatorStack.peek();
                     switch (top) {
                         case Call(name, _): 
                             var args = [];
@@ -121,18 +154,29 @@ class Parser {
                         default: 
 
                     }
-                
+                    
 
             }
             pos++;
         }
 
         while (operatorStack.length > 0) {
-            final right = operandStack.pop();
-            final left = operandStack.pop();
-            operandStack.push(new Expr(operatorStack.pop(), [left, right]));
+            switch (opkind[operatorStack.peek()]) {
+                case Infix: 
+					final right = operandStack.pop();
+					final left = operandStack.pop();
+					operandStack.push(new Expr(operatorStack.pop(), [left, right]));
+                case Prefix: 
+                    final right = operandStack.pop();
+                    operandStack.push(new Expr(operatorStack.pop(), [right]));
+                case Postfix:
+                    // todo
+            }
+            
         }
+        trace(operandStack.peek());
         return operandStack.pop();
 
     }
 }
+

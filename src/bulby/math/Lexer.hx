@@ -1,5 +1,6 @@
 package bulby.math;
 
+using bulby.math.Helper.ArrayTools;
 enum Token {
     Number(value:Float);
     Add;
@@ -11,6 +12,7 @@ enum Token {
     RParen;
     Pow;
     Function(name:String);
+    Negate;
 }
 typedef Options = {
     var ?powAstreisk:Bool;
@@ -35,11 +37,7 @@ class Lexer {
                 case _ if (Helper.isFloatNumeric(curChar)): 
                     tokens.push(Number(constr.consumeFloat()));
                 case "+": 
-                    if (Helper.isFloatNumeric(constr.peek())) {
-                        tokens.push(Number(constr.consumeFloat()));
-                    } else {
-                        tokens.push(Add);
-                    }
+					tokens.push(Add);
                 case "/": 
                     tokens.push(Div);
                 case "*":
@@ -63,12 +61,14 @@ class Lexer {
                 case "^" if (!options.powAstreisk):
                     tokens.push(Pow);
                 case "-": 
-                    if (Helper.isFloatNumeric(constr.peek())) {
-                        tokens.push(Number(constr.consumeFloat()));
-                    } else {
-                        tokens.push(Sub);
-                    }
-
+                    // Parser will handle negative numbers; 
+                    // It will ensure that if the next token is a number
+                    //  and the previous is an operator
+                    // it will be negative
+                    if (tokens.length == 0 || tokens.peek().match(Add | Sub | Div | Mul | Mod |Pow)) {
+                        tokens.push(Negate);
+                    } else 
+					    tokens.push(Sub);
                 case " " | "\t" | "\n" | "\r" | ",":
                     // Do nothing
                 case _ if (Helper.isAlpha(curChar)):

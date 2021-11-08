@@ -35,3 +35,10 @@ function isAlpha(str:String) {
 function isAlphaNumeric(str:String ) {
     return isNumeric(str) || isAlpha(str);
 }
+
+class ArrayTools {
+    @:pure
+    public static function peek<T>(arr:Array<T>):T {
+        return arr[arr.length - 1];
+    }
+}

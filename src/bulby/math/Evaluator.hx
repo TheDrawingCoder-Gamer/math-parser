@@ -20,7 +20,7 @@ class Evaluator {
     ];
     public static function evaluate(expr:bulby.math.Parser.Expr):Float {
         switch (expr.children.length) {
-            case 2 | 1: 
+            case 2: 
                 final left = expr.children[0];
                 final right = expr.children[1];
                 switch (expr.value) {
@@ -40,17 +40,27 @@ class Evaluator {
                         if (!functions.exists(name)) {
                             throw "Unknown function: " + name;
                         }
-                        switch (argCount[name]) {
-                            case 1: 
-                                return functions[name](evaluate(right));
-                            case 2: 
-                                return functions[name](evaluate(left), evaluate(right));
-                            default: 
-                                throw "Invalid Argument Count (internal error, fix this)";
-                        }
+                        if (args.length != argCount[name])
+                            throw "Evaluation Error: Invalid Argument Count";
+						return Reflect.callMethod(null, functions[name], args.map((e) -> evaluate(e)));
                     default: 
                         throw "Evaluation Error: Expected operator in node, got " + expr.value;
                 }
+            case 1: 
+                final left = expr.children[0];
+                switch (expr.value) {
+                    case Call(name, args): 
+						if (!functions.exists(name)) {
+							throw "Unknown function: " + name;
+						}
+						if (args.length != argCount[name])
+							throw "Evaluation Error: Invalid Argument Count";
+						return Reflect.callMethod(null, functions[name], args.map((e) -> evaluate(e)));
+                    case Negate:
+                        return -evaluate(left);
+                    default: 
+                        throw "Evaluation Error: Expected Unary Operator";
+                }   
             case 0:
                 switch (expr.value) {
                     case Number(value): 
@@ -64,14 +74,10 @@ class Evaluator {
                         if (!functions.exists(name)) {
                             throw "Unknown function: " + name;
                         }
-                        switch (argCount[name]) {
-                            case 1: 
-                                return functions[name](evaluate(args[0]));
-                            case 2: 
-                                return functions[name](evaluate(args[0]), evaluate(args[1]));
-                            default: 
-                                throw "Invalid Argument Count (internal error, fix this)";
+                        if (args.length != argCount[name]) {
+                            throw "Evaluation Error: Invalid Argument Count";
                         }
+                        return Reflect.callMethod(null, functions[name], args.map((e) -> evaluate(e)));
                     default: 
                         throw "Evaluation Error: Expected function call in node, got " + expr.value;
                 }
