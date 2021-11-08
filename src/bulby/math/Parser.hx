@@ -103,7 +103,9 @@ class Parser {
                 case Number(value): 
                     operandStack.push(new Expr(Number(value)));
                 // If this is the first operator OR the previous operator was a binop or the start of a parentesis
-				case Sub if ((pos - 1 < 0 || tokens[pos - 1] == LParen || opkind[eexprFromToken(tokens[pos - 1])] == Infix ) && operandStack.peek().value.match(Number(_))): 
+				case Sub
+					if (pos == 0
+						|| ((tokens[pos - 1] == LParen || opkind[eexprFromToken(tokens[pos - 1])] == Infix ) && operandStack.peek().value.match(Number(_)))): 
 					while (operatorStack.length > 0) {
 						var top = operatorStack.peek();
 						if (top != LParen
