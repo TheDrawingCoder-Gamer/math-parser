@@ -58,6 +58,9 @@ class Evaluator {
 						return Reflect.callMethod(null, functions[name], args.map((e) -> evaluate(e)));
                     case Negate:
                         return -evaluate(left);
+                    case Identity:
+                        // Stupid lmao
+                        return evaluate(left);
                     default: 
                         throw "Evaluation Error: Expected Unary Operator";
                 }   

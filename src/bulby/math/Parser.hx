@@ -2,9 +2,10 @@ package bulby.math;
 
 import bulby.math.Lexer.Token;
 using bulby.math.Helper.ArrayTools;
-enum Side {
+enum Associativity {
     Left;
     Right;
+    None;
 }
 enum EExpr {
     Number(value:Float);
@@ -18,7 +19,7 @@ enum EExpr {
     LParen;
     RParen;
     Negate;
-
+    Identity;
 }
 enum OpKind {
     Prefix;
@@ -38,6 +39,7 @@ class Expr {
     }
 }
 class Parser {
+    // Unary operators MUST have higher precedence than binary operators.
     public static var precedence:Map<EExpr, Int> = [
         Add => 4,
         Sub => 4,
@@ -45,9 +47,11 @@ class Parser {
         Div => 3,
         Mod => 3,
         Pow => 2,
-        Negate => 1
+        Negate => 1,
+        Identity => 1
+
     ];
-    public static var associativity:Map<EExpr, Side> = [
+    public static var associativity:Map<EExpr, Associativity> = [
         Add => Left,
         Sub => Left,
         Mul => Left,
@@ -62,7 +66,8 @@ class Parser {
 	    Div => Infix,
 		Mod => Infix,
 		Pow => Infix,
-        Negate => Prefix
+        Negate => Prefix,
+        Identity => Prefix
     ];
     static function eexprFromToken(token:Token):EExpr {
         switch (token) {
@@ -86,8 +91,6 @@ class Parser {
                 return RParen;
             case Function(name):
                 return Call(name, []);
-            case Negate:
-                return Negate;
         }
     }
     public static function parse(tokens:Array<Token>) {
@@ -100,9 +103,51 @@ class Parser {
                 case Number(value): 
                     operandStack.push(new Expr(Number(value)));
                 // If this is the first operator OR the previous operator was a binop or the start of a parentesis
-				case Sub if ((tokens[pos - 1] == null || tokens[pos - 1].match(Add | Sub | Mul | Div | Mod | Pow | LParen)) && operandStack.peek().value.match(Number(_))): 
+				case Sub if ((pos - 1 < 0 || tokens[pos - 1] == LParen || opkind[eexprFromToken(tokens[pos - 1])] == Infix ) && operandStack.peek().value.match(Number(_))): 
+					while (operatorStack.length > 0) {
+						var top = operatorStack.peek();
+						if (top != LParen
+							&& (precedence[top] < precedence[Negate])) {
+							switch (opkind[top]) {
+								case Infix:
+									final right = operandStack.pop();
+									final left = operandStack.pop();
+									operandStack.push(new Expr(operatorStack.pop(), [left, right]));
+								case Prefix:
+									final arg = operandStack.pop();
+									operandStack.push(new Expr(operatorStack.pop(), [arg]));
+								case Postfix:
+									// TODO: Implement postfix
+							}
+						} else {
+							break;
+						}
+					}
                     operatorStack.push(Negate);
-                case Sub | Add | Mul | Div | Mod | Pow | Negate : 
+                case Add if ((pos - 1 < 0 || tokens[pos - 1] == LParen || opkind[eexprFromToken(tokens[pos - 1])] == Infix) && operandStack.peek().value.match(Number(_))): 
+					while (operatorStack.length > 0) {
+						var top = operatorStack.peek();
+						if (top != LParen
+							&& (precedence[top] < precedence[Identity]
+								|| (precedence[top] == precedence[Identity]
+									&& associativity[eexprFromToken(token)] == Left))) {
+							switch (opkind[top]) {
+								case Infix:
+									final right = operandStack.pop();
+									final left = operandStack.pop();
+									operandStack.push(new Expr(operatorStack.pop(), [left, right]));
+								case Prefix:
+									final arg = operandStack.pop();
+									operandStack.push(new Expr(operatorStack.pop(), [arg]));
+								case Postfix:
+									// TODO: Implement postfix
+							}
+						} else {
+							break;
+						}
+					}
+                    operatorStack.push(Identity);
+                case _ if (opkind.exists(eexprFromToken(token))): 
                     while (operatorStack.length > 0) {
                         var top = operatorStack.peek();
                         if (top != LParen && (precedence[top] < precedence[eexprFromToken(token)] || (precedence[top] == precedence[eexprFromToken(token)] && associativity[eexprFromToken(token)] == Left))) {
