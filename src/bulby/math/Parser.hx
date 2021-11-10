@@ -9,17 +9,16 @@ enum Associativity {
 }
 enum EExpr {
     Number(value:Float);
-    Add;
-    Sub;
-    Div;
-    Mul;
-    Mod;
-    Pow;
+    Add(left:Expr, right:Expr);
+    Sub(left:Expr, right:Expr);
+    Div(left:Expr, right:Expr);
+    Mul(left:Expr, right:Expr);
+    Mod(left:Expr, right:Expr);
+    Pow(left:Expr, right:Expr);
     Call(name:String, args:Array<Expr>);
+    Negate(expr:Expr);
     LParen;
     RParen;
-    Negate;
-    Identity;
 }
 enum OpKind {
     Prefix;
@@ -28,63 +27,34 @@ enum OpKind {
 
 }
 class Expr {
-    public var children:Array<Expr>;
-    public var value:EExpr;
-    public function new(value:EExpr, ?children:Array<Expr>):Void {
+    // public var children:Array<Expr>;
+    public final value:EExpr;
+    public function new(value:EExpr /*, ?children:Array<Expr> */):Void {
         this.value = value;
-        this.children = children == null ? [] : children;
+        // this.children = children == null ? [] : children;
     }
-    function toString() {
-        return value + "(" + children.join(",") + ")";
+    function toString():String {
+        return value + "";
     }
 }
 class Parser {
-    // Unary operators MUST have higher precedence than binary operators.
-    public static var precedence:Map<EExpr, Int> = [
-        Add => 4,
-        Sub => 4,
-        Mul => 3,
-        Div => 3,
-        Mod => 3,
-        Pow => 2,
-        Negate => 1,
-        Identity => 1
-
-    ];
-    public static var associativity:Map<EExpr, Associativity> = [
-        Add => Left,
-        Sub => Left,
-        Mul => Left,
-        Div => Left,
-        Mod => Left,
-        Pow => Right
-    ];
-    public static var opkind:Map<EExpr, OpKind> = [
-        Add => Infix,
-	    Sub => Infix,
-	    Mul => Infix,
-	    Div => Infix,
-		Mod => Infix,
-		Pow => Infix,
-        Negate => Prefix,
-        Identity => Prefix
-    ];
+    
     static function eexprFromToken(token:Token):EExpr {
         switch (token) {
             case Token.Number(value): 
                 return Number(value);
             case Add: 
-                return Add;
+                return Add(null, null);
             case Sub:
-                return Sub;
+                return Sub(null, null);
             case Mul:
-                return Mul;
+                return Mul(null, null);
             case Div:
-                return Div;
+                return Div(null, null);
             case Mod:
-                return Mod;
+                return Mod(null, null);
             case Pow:
-                return Pow;
+                return Pow(null, null);
             case LParen:
                 return LParen;
             case RParen:
@@ -103,19 +73,19 @@ class Parser {
                 case Number(value): 
                     operandStack.push(new Expr(Number(value)));
                 // If this is the first operator OR the previous operator was a binop or the start of a parentesis
-				case Sub if ((pos - 1 < 0 || tokens[pos - 1] == LParen || opkind[eexprFromToken(tokens[pos - 1])] == Infix ) && operandStack.peek().value.match(Number(_))): 
+				case Sub if ((pos - 1 < 0 || tokens[pos - 1] == LParen || opkind(eexprFromToken(tokens[pos - 1])) == Infix ) && operandStack.peek().value.match(Number(_))): 
 					while (operatorStack.length > 0) {
 						var top = operatorStack.peek();
 						if (top != LParen
-							&& (precedence[top] < precedence[Negate])) {
-							switch (opkind[top]) {
+							&& (precedence(top) < precedence(Negate(null)))) {
+							switch (opkind(top)) {
 								case Infix:
 									final right = operandStack.pop();
 									final left = operandStack.pop();
-									operandStack.push(new Expr(operatorStack.pop(), [left, right]));
+									operandStack.push(new Expr(fillEnumValue(operatorStack.pop(), [left, right])));
 								case Prefix:
 									final arg = operandStack.pop();
-									operandStack.push(new Expr(operatorStack.pop(), [arg]));
+									operandStack.push(new Expr(fillEnumValue(operatorStack.pop(), [arg])));
 								case Postfix:
 									// TODO: Implement postfix
 							}
@@ -123,42 +93,19 @@ class Parser {
 							break;
 						}
 					}
-                    operatorStack.push(Negate);
-                case Add if ((pos - 1 < 0 || tokens[pos - 1] == LParen || opkind[eexprFromToken(tokens[pos - 1])] == Infix) && operandStack.peek().value.match(Number(_))): 
-					while (operatorStack.length > 0) {
-						var top = operatorStack.peek();
-						if (top != LParen
-							&& (precedence[top] < precedence[Identity]
-								|| (precedence[top] == precedence[Identity]
-									&& associativity[eexprFromToken(token)] == Left))) {
-							switch (opkind[top]) {
-								case Infix:
-									final right = operandStack.pop();
-									final left = operandStack.pop();
-									operandStack.push(new Expr(operatorStack.pop(), [left, right]));
-								case Prefix:
-									final arg = operandStack.pop();
-									operandStack.push(new Expr(operatorStack.pop(), [arg]));
-								case Postfix:
-									// TODO: Implement postfix
-							}
-						} else {
-							break;
-						}
-					}
-                    operatorStack.push(Identity);
-                case _ if (opkind.exists(eexprFromToken(token))): 
+                    operatorStack.push(Negate(null));
+                case _ if (opkind(eexprFromToken(token)) != null): 
                     while (operatorStack.length > 0) {
                         var top = operatorStack.peek();
-                        if (top != LParen && (precedence[top] < precedence[eexprFromToken(token)] || (precedence[top] == precedence[eexprFromToken(token)] && associativity[eexprFromToken(token)] == Left))) {
-                            switch (opkind[top]) {
+                        if (top != LParen && (precedence(top) < precedence(eexprFromToken(token)) || (precedence(top) == precedence(eexprFromToken(token)) && associativity(eexprFromToken(token)) == Left))) {
+                            switch (opkind(top)) {
                                 case Infix:
 									final right = operandStack.pop();
 									final left = operandStack.pop();
-									operandStack.push(new Expr(operatorStack.pop(), [left, right]));
+									operandStack.push(new Expr(fillEnumValue(operatorStack.pop(), [left, right])));
                                 case Prefix:
                                     final arg = operandStack.pop();
-                                    operandStack.push(new Expr(operatorStack.pop(), [arg]));
+                                    operandStack.push(new Expr(fillEnumValue(operatorStack.pop(), [arg])));
                                 case Postfix:
                                     // TODO: Implement postfix
                             }   
@@ -179,7 +126,7 @@ class Parser {
                         if (top != LParen) {
                             final right = operandStack.pop();
                             final left = operandStack.pop();
-                            operandStack.push(new Expr(operatorStack.pop(), [left, right]));
+                            operandStack.push(new Expr(fillEnumValue(operatorStack.pop(), [left, right])));
                         } else {
                             hasParen = true;
                             operatorStack.pop();
@@ -205,22 +152,81 @@ class Parser {
             pos++;
         }
 
+        trace(operandStack);
         while (operatorStack.length > 0) {
-            switch (opkind[operatorStack.peek()]) {
-                case Infix: 
-					final right = operandStack.pop();
-					final left = operandStack.pop();
-					operandStack.push(new Expr(operatorStack.pop(), [left, right]));
-                case Prefix: 
+            var top = operatorStack.peek();
+            switch (opkind(top)) {
+                case Prefix:
+                    final arg = operandStack.pop();
+                    operandStack.push(new Expr(fillEnumValue(operatorStack.pop(), [arg])));
+                case Infix:
                     final right = operandStack.pop();
-                    operandStack.push(new Expr(operatorStack.pop(), [right]));
+                    final left = operandStack.pop();
+                    operandStack.push(new Expr(fillEnumValue(operatorStack.pop(), [left, right])));
                 case Postfix:
-                    // todo
+                    // TODO
             }
-            
         }
         trace(operandStack.peek());
         return operandStack.pop();
+
+    }
+    public static function precedence(eexpr:EExpr):Null<Int> {
+        switch (eexpr) {
+            case Sub(_, _) | Add(_, _):
+                return 4;
+            case Mul(_, _) | Div(_, _):
+                return 3;
+            case Pow(_, _):
+                return 2;
+            case Negate(_):
+                return 1;
+            default:
+                return null;
+        }
+    }
+    public static function associativity(eexpr:EExpr):Null<Associativity> {
+        switch (eexpr) {
+            case Sub(_, _) | Add(_, _) | Mul(_, _) | Div(_, _):
+                return Left;
+            case Pow(_, _) | Negate(_):
+                return Right;
+            default:
+                return null;
+        }
+    }
+    public static function opkind(eexpr:EExpr):Null<OpKind> {
+        switch (eexpr) {
+            case Sub(_, _) | Add(_, _) | Mul(_, _) | Div(_, _) | Pow(_, _):
+                return Infix;
+            case Negate(_):
+                return Prefix;
+            default: 
+                return null;
+        }
+    }
+    public static function fillEnumValue(eexpr:EExpr, args:Array<Dynamic>) {
+        switch (eexpr) {
+            case Sub(_, _):
+                return Sub(args[0], args[1]);
+            case Add(_, _):
+                return Add(args[0], args[1]);
+            case Mul(_, _):
+                return Mul(args[0], args[1]);
+            case Div(_, _):
+                return Div(args[0], args[1]);
+            case Pow(_, _):
+                return Pow(args[0], args[1]);
+            case Negate(_):
+                return Negate(args[0]);
+            case Call(name, _):
+                // Why do I have to cast here; dynamic should do that automatically
+                return Call(name, cast args);
+            case Number(_):
+                return Number(args[0]);
+            default:
+                return null;
+        }
 
     }
 }
